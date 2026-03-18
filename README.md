@@ -26,6 +26,7 @@ To deliver a production-ready experience, **MemeClaw Hunter** is built on a mult
 - **Strategic Technical Analysis:** Detailed price action review with Entry/Exit zones.
 - **Dynamic Risk Score:** Real-time auditing for high-risk assets and whale movement.
 - **Fail-safe Mechanism:** Frontend ensures data persistence even during API sync intervals.
+- ![MemeClaw Dashboard](dashboard.jpg)
 
 ---
 *Built for the #AIBinance OpenClaw Challenge.*
