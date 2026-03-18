@@ -29,4 +29,4 @@ To deliver a production-ready experience, **MemeClaw Hunter** is built on a mult
 - ![MemeClaw Dashboard](dashboard.jpg)
 
 ---
-*Built for the #AIBinance OpenClaw Challenge.*
+*MemeClaw Hunter: Bridging AI Intelligence with Binance Execution for the next generation of Alpha seekers.*
