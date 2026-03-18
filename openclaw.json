@@ -1,0 +1,202 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-18T21:42:37.174Z"
+  },
+  "env": {
+    "vars": {
+      "DASHBOARD_API_URL": "https://meme-claw-dashboard--0xr1.replit.app/api/memecoins/update",
+      "DASHBOARD_API_KEY": "0xR1"
+    },
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-17T07:14:24.092Z",
+    "lastRunVersion": "2026.3.13",
+    "lastRunCommand": "configure",
+    "lastRunMode": "local"
+  },
+  "auth": {
+    "profiles": {
+      "anthropic:default": {
+        "provider": "anthropic",
+        "mode": "api_key"
+      
+      }
+    }
+  },
+  "models": {
+    "mode": 
+    "providers": {
+      "nvidia-nim": {
+        "baseUrl": "https://integrate.api.nvidia.com/v1",
+        "apiKey": "0xR1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "moonshotai/kimi-k2.5",
+            "name": "Kimi K2.5 (NVIDIA)",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+
+     
+      "workspace": "/home/xr1/.openclaw/workspace",
+      "memorySearch": {
+        "enabled": false
+      },
+      "contextPruning": {
+        "mode": "cache-ttl",
+        "ttl": "1h"
+      },
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "heartbeat": {
+        "every": "30m"
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "model": "nvidia-nim/moonshotai/kimi-k2.5"
+      }
+    ]
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "hooks": {
+    "enabled": false,
+    "token": "0xR1",
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "command-logger": {
+          "enabled": true
+        },
+        "session-memory": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "channels": {
+    "whatsapp": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "selfChatMode": true,
+      "allowFrom": [
+        "+0xR1",
+        "+0xR1"
+      ],
+      "groupPolicy": "allowlist",
+      "debounceMs": 0,
+      "mediaMaxMb": 50
+    },
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "botToken": "0xR1",
+      "allowFrom": [
+        0xR1,
+        "*"
+      ],
+      "groupPolicy": "allowlist",
+      "streaming": "partial"
+    },
+    "discord": {
+      "enabled": true,
+      "token": 0xR1
+      "groupPolicy": "open",
+      "streaming": "off",
+      "dmPolicy": "open",
+      "allowFrom": [
+        "0xR1",
+        "*"
+      ],
+      "dm": {
+        "enabled": true
+      },
+      "guilds": {
+        "0xR1": {
+          "channels": {
+            "0xR1": {
+              "allow": true
+            },
+            "0xR1": {
+              "allow": true
+            }
+          }
+        },
+        "*": {
+          "channels": {
+            "0xR1": {
+              "allow": true
+            }
+          }
+        },
+        "0xR1": {}
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": "OPENCLAW_REDACTED"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "calendar.add",
+        "contacts.add",
+        "reminders.add"
+      ]
+    }
+  },
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      },
+      "whatsapp": {
+        "enabled": true
+      },
+      "discord": {
+        "enabled": true
+      },
+      "google-gemini-cli-auth": {
+        "enabled": true
+      }
+    }
+  }
+}

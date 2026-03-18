@@ -1,0 +1,13 @@
+{
+  "webhook": {
+    "name": "MemeClaw Dashboard",
+    "url": "https://meme-claw-dashboard--0xr1.replit.app/api/memecoins/update",
+    "method": "POST",
+    "headers": {
+      "Authorization": "0xR1",
+      "Content-Type": "application/json"
+    },
+    "enabled": true,
+    "schedule": "every_15m"
+  }
+}

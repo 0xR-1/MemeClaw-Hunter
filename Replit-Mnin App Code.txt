@@ -1,0 +1,342 @@
+import { Router, type IRouter } from "express";
+import { db, coinsTable, type Coin } from "@workspace/db";
+import { GetMemeCoinsResponse } from "@workspace/api-zod";
+
+const router: IRouter = Router();
+
+const PRICE_TTL_MS = 60 * 1000;
+
+interface PriceData {
+  price: number;
+  priceChange24h: number;
+  marketCap: string;
+  volume24h: string;
+  priceSource: "binance" | "dexscreener";
+}
+
+const COINGECKO_IDS: Record<string, string> = {
+  BTC:    "bitcoin",
+  ETH:    "ethereum",
+  SOL:    "solana",
+  BNB:    "binancecoin",
+  PEPE:   "pepe",
+  WIF:    "dogwifhat",
+  BONK:   "bonk",
+  FLOKI:  "floki",
+  TURBO:  "turbo",
+  POPCAT: "popcat",
+};
+
+interface CoinGeckoPrice {
+  usd?: number;
+  usd_24h_change?: number;
+  usd_24h_vol?: number;
+  usd_market_cap?: number;
+}
+
+interface DexPair {
+  baseToken?: { address?: string; symbol?: string };
+  priceUsd?: string;
+  priceChange?: { h24?: number };
+  volume?: { h24?: number };
+  marketCap?: number;
+  fdv?: number;
+}
+
+const STATIC_PRICES: Record<string, { price: number; priceChange24h: number; marketCap: string; volume24h: string }> = {
+  BTC:    { price: 84000,       priceChange24h: 1.2,   marketCap: "$1.67T", volume24h: "$32B"  },
+  ETH:    { price: 3200,        priceChange24h: 2.1,   marketCap: "$384B",  volume24h: "$14B"  },
+  SOL:    { price: 145,         priceChange24h: 3.4,   marketCap: "$67B",   volume24h: "$4.2B" },
+  BNB:    { price: 610,         priceChange24h: 1.8,   marketCap: "$91B",   volume24h: "$1.8B" },
+  PEPE:   { price: 0.00001234,  priceChange24h: 18.4,  marketCap: "$1.23B", volume24h: "$342M" },
+  WIF:    { price: 2.41,        priceChange24h: 12.9,  marketCap: "$2.41B", volume24h: "$891M" },
+  BONK:   { price: 0.00002891,  priceChange24h: 7.3,   marketCap: "$1.89B", volume24h: "$543M" },
+  FLOKI:  { price: 0.0001847,   priceChange24h: -3.2,  marketCap: "$1.77B", volume24h: "$287M" },
+  MOG:    { price: 0.000001923, priceChange24h: 34.7,  marketCap: "$748M",  volume24h: "$209M" },
+  BRETT:  { price: 0.1243,      priceChange24h: 22.1,  marketCap: "$1.24B", volume24h: "$419M" },
+  TURBO:  { price: 0.009241,    priceChange24h: -1.5,  marketCap: "$923M",  volume24h: "$178M" },
+  POPCAT: { price: 0.7821,      priceChange24h: 9.8,   marketCap: "$782M",  volume24h: "$315M" },
+};
+
+const DEFAULT_COINS = [
+  { id: "bitcoin",   name: "Bitcoin",   symbol: "BTC",    badge: "Trending",       riskLevel: "Low Risk",    emoji: "₿",  binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "ethereum",  name: "Ethereum",  symbol: "ETH",    badge: "Trending",       riskLevel: "Low Risk",    emoji: "Ξ",  binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "solana",    name: "Solana",    symbol: "SOL",    badge: "Hot",            riskLevel: "Low Risk",    emoji: "◎",  binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "bnb",       name: "BNB",       symbol: "BNB",    badge: "Trending",       riskLevel: "Low Risk",    emoji: "🔶", binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "pepe",      name: "Pepe",      symbol: "PEPE",   badge: "High Potential", riskLevel: "High Risk",   emoji: "🐸", binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "dogwifhat", name: "dogwifhat", symbol: "WIF",    badge: "Hot",            riskLevel: "Medium Risk", emoji: "🐕", binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "bonk",      name: "Bonk",      symbol: "BONK",   badge: "Trending",       riskLevel: "Medium Risk", emoji: "🔨", binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "floki",     name: "FLOKI",     symbol: "FLOKI",  badge: "Trending",       riskLevel: "Medium Risk", emoji: "⚡", binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "mog",       name: "Mog Coin",  symbol: "MOG",    badge: "High Potential", riskLevel: "High Risk",   emoji: "😼", binanceListed: false, tokenAddress: "0xaaee1a9723aadb7afa2810263653a34ba2c21c7a", dexScreenerUrl: "https://dexscreener.com/ethereum/0xaaee1a9723aadb7afa2810263653a34ba2c21c7a" },
+  { id: "brett",     name: "Brett",     symbol: "BRETT",  badge: "Hot",            riskLevel: "High Risk",   emoji: "🦸", binanceListed: false, tokenAddress: "0x532f27101965dd16442e59d40670faf5ebb142e4", dexScreenerUrl: "https://dexscreener.com/base/0x532f27101965dd16442e59d40670faf5ebb142e4" },
+  { id: "turbo",     name: "Turbo",     symbol: "TURBO",  badge: "New Listing",    riskLevel: "Low Risk",    emoji: "🚀", binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+  { id: "popcat",    name: "Popcat",    symbol: "POPCAT", badge: "Gem",            riskLevel: "Low Risk",    emoji: "🐱", binanceListed: true,  tokenAddress: null, dexScreenerUrl: null },
+] as const;
+
+let priceCache = new Map<string, PriceData>();
+let priceCacheTime = 0;
+let dbSeeded = false;
+
+function formatCompact(num: number): string {
+  if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
+  if (num >= 1e9)  return `$${(num / 1e9).toFixed(2)}B`;
+  if (num >= 1e6)  return `$${(num / 1e6).toFixed(0)}M`;
+  if (num >= 1e3)  return `$${(num / 1e3).toFixed(0)}K`;
+  return `$${num.toFixed(2)}`;
+}
+
+async function ensureSeeded(): Promise<void> {
+  const existing = await db.select().from(coinsTable).limit(1);
+  if (existing.length === 0) {
+    for (const coin of DEFAULT_COINS) {
+      await db.insert(coinsTable).values(coin).onConflictDoNothing();
+    }
+  }
+  dbSeeded = true;
+}
+
+async function fetchCoinGeckoPrices(symbols: string[]): Promise<Map<string, PriceData>> {
+  const result = new Map<string, PriceData>();
+  if (symbols.length === 0) return result;
+  const ids = symbols.map((s) => COINGECKO_IDS[s]).filter(Boolean).join(",");
+  if (!ids) return result;
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`;
+  const response = await fetch(url, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10000) });
+  if (!response.ok) throw new Error(`CoinGecko API ${response.status}`);
+  const data = (await response.json()) as Record<string, CoinGeckoPrice>;
+  for (const sym of symbols) {
+    const geckoId = COINGECKO_IDS[sym];
+    if (!geckoId) continue;
+    const entry = data[geckoId];
+    if (!entry?.usd) continue;
+    result.set(sym, {
+      price: entry.usd,
+      priceChange24h: Number((entry.usd_24h_change ?? 0).toFixed(2)),
+      marketCap: formatCompact(entry.usd_market_cap ?? 0),
+      volume24h: formatCompact(entry.usd_24h_vol ?? 0),
+      priceSource: "binance",
+    });
+  }
+  return result;
+}
+
+async function fetchDexScreenerPrices(coins: Coin[]): Promise<Map<string, PriceData>> {
+  const result = new Map<string, PriceData>();
+  const withAddress = coins.filter((c) => c.tokenAddress);
+  if (withAddress.length === 0) return result;
+  const addresses = withAddress.map((c) => c.tokenAddress).join(",");
+  const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${addresses}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error(`DexScreener API ${response.status}`);
+  const data = (await response.json()) as { pairs?: DexPair[] };
+  const pairs = data.pairs ?? [];
+  for (const coin of withAddress) {
+    const tokenPairs = pairs.filter((p) => p.baseToken?.address?.toLowerCase() === coin.tokenAddress?.toLowerCase() || p.baseToken?.symbol?.toUpperCase() === coin.symbol.toUpperCase());
+    if (tokenPairs.length === 0) continue;
+    const best = tokenPairs.sort((a, b) => (b.volume?.h24 ?? 0) - (a.volume?.h24 ?? 0))[0];
+    result.set(coin.symbol, {
+      price: parseFloat(best.priceUsd ?? "0") || 0,
+      priceChange24h: Number((best.priceChange?.h24 ?? 0).toFixed(2)),
+      marketCap: formatCompact(best.marketCap ?? best.fdv ?? 0),
+      volume24h: formatCompact(best.volume?.h24 ?? 0),
+      priceSource: "dexscreener",
+    });
+  }
+  return result;
+}
+
+async function refreshPrices(coins: Coin[]): Promise<void> {
+  const geckoSymbols = coins.filter((c) => c.binanceListed && COINGECKO_IDS[c.symbol]).map((c) => c.symbol);
+  const dexCoins = coins.filter((c) => !c.binanceListed && c.tokenAddress);
+  const [geckoResult, dexResult] = await Promise.allSettled([fetchCoinGeckoPrices(geckoSymbols), fetchDexScreenerPrices(dexCoins)]);
+  const newCache = new Map<string, PriceData>();
+  if (geckoResult.status === "fulfilled") for (const [sym, data] of geckoResult.value) newCache.set(sym, data);
+  if (dexResult.status === "fulfilled") for (const [sym, data] of dexResult.value) newCache.set(sym, data);
+  priceCache = newCache;
+  priceCacheTime = Date.now();
+}
+
+router.get("/memecoins", async (_req, res) => {
+  try {
+    if (!dbSeeded) await ensureSeeded();
+    const coins = await db.select().from(coinsTable);
+    if (Date.now() - priceCacheTime > PRICE_TTL_MS) await refreshPrices(coins);
+    const result = coins.map((coin) => {
+      const live = priceCache.get(coin.symbol);
+      const fallback = STATIC_PRICES[coin.symbol];
+      return {
+        id: coin.id, name: coin.name, symbol: coin.symbol,
+        price:         live?.price          ?? fallback?.price          ?? 0,
+        priceChange24h: live?.priceChange24h ?? fallback?.priceChange24h ?? 0,
+        marketCap:     live?.marketCap       ?? fallback?.marketCap      ?? "N/A",
+        volume24h:     live?.volume24h       ?? fallback?.volume24h      ?? "N/A",
+        badge:         coin.badge as "High Potential" | "Hot" | "New Listing" | "Trending" | "Gem",
+        riskLevel:     coin.riskLevel as "High Risk" | "Medium Risk" | "Low Risk",
+        binanceListed: coin.binanceListed,
+        dexScreenerUrl: coin.dexScreenerUrl ?? undefined,
+        priceSource:   (live?.priceSource ?? "static") as "binance" | "dexscreener" | "static",
+        binanceUrl:    `https://www.binance.com/en/trade/${coin.symbol}_USDT`,
+        emoji:         coin.emoji,
+      };
+    });
+    res.json(GetMemeCoinsResponse.parse(result));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to load meme coins" });
+  }
+});
+
+router.post("/memecoins/update", async (req, res) => {
+  const bridgeToken = process.env["OPENCLAW_BRIDGE_TOKEN"];
+  const authHeader = req.headers["authorization"] ?? "";
+  const provided = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!bridgeToken || provided !== bridgeToken) {
+    res.status(401).json({ error: "Unauthorized — invalid or missing token" });
+    return;
+  }
+  try {
+    const incoming = req.body as unknown;
+    if (!Array.isArray(incoming) || incoming.length === 0) {
+      res.status(400).json({ error: "Expected a non-empty array of coin objects" });
+      return;
+    }
+    let upserted = 0;
+    for (const raw of incoming as Array<Record<string, unknown>>) {
+      const id     = String(raw["id"]     ?? "").trim();
+      const name   = String(raw["name"]   ?? "").trim();
+      const symbol = String(raw["symbol"] ?? "").trim().toUpperCase();
+      if (!id || !name || !symbol) continue;
+      await db.insert(coinsTable).values({
+        id, name, symbol,
+        badge:          String(raw["badge"]          ?? "Trending"),
+        riskLevel:      String(raw["riskLevel"]      ?? "Medium Risk"),
+        emoji:          String(raw["emoji"]          ?? "🪙"),
+        binanceListed:  Boolean(raw["binanceListed"]  ?? false),
+        tokenAddress:   raw["tokenAddress"]   ? String(raw["tokenAddress"])   : null,
+        dexScreenerUrl: raw["dexScreenerUrl"] ? String(raw["dexScreenerUrl"]) : null,
+      }).onConflictDoUpdate({
+        target: coinsTable.id,
+        set: {
+          name, symbol,
+          badge:          String(raw["badge"]          ?? "Trending"),
+          riskLevel:      String(raw["riskLevel"]      ?? "Medium Risk"),
+          emoji:          String(raw["emoji"]          ?? "🪙"),
+          binanceListed:  Boolean(raw["binanceListed"]  ?? false),
+          tokenAddress:   raw["tokenAddress"]   ? String(raw["tokenAddress"])   : null,
+          dexScreenerUrl: raw["dexScreenerUrl"] ? String(raw["dexScreenerUrl"]) : null,
+          updatedAt:      new Date(),
+        },
+      });
+      upserted++;
+    }
+    priceCacheTime = 0;
+    res.json({ status: "ok", upserted, timestamp: Date.now() });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to process bridge update" });
+  }
+});
+
+export default router;
+
+import { Router, type IRouter } from "express";
+import healthRouter from "./health";
+import memecoinsRouter from "./memecoins";
+
+const router: IRouter = Router();
+
+router.get("/", (_req, res) => {
+  res.status(200).json({ status: "ok", message: "MemeClaw Hunter API is live 🦞" });
+});
+router.post("/", (_req, res) => {
+  res.status(200).json({ status: "ok", message: "MemeClaw Hunter API is live 🦞" });
+});
+
+router.use(healthRouter);
+router.use(memecoinsRouter);
+
+export default router;
+
+import { pgTable, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+
+export const coinsTable = pgTable("coins", {
+  id:             text("id").primaryKey(),
+  name:           text("name").notNull(),
+  symbol:         text("symbol").notNull(),
+  badge:          text("badge").notNull().default("Trending"),
+  riskLevel:      text("risk_level").notNull().default("Medium Risk"),
+  emoji:          text("emoji").notNull().default("🪙"),
+  binanceListed:  boolean("binance_listed").notNull().default(false),
+  tokenAddress:   text("token_address"),
+  dexScreenerUrl: text("dex_screener_url"),
+  updatedAt:      timestamp("updated_at").defaultNow().notNull(),
+  createdAt:      timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCoinSchema = createInsertSchema(coinsTable).omit({ updatedAt: true, createdAt: true });
+export type InsertCoin = z.infer<typeof insertCoinSchema>;
+export type Coin = typeof coinsTable.$inferSelect;
+
+
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: MemeClaw Hunter API specification
+servers:
+  - url: /api
+tags:
+  - name: health
+  - name: memecoins
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /memecoins:
+    get:
+      operationId: getMemeCoins
+      tags: [memecoins]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MemeCoin"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+    MemeCoin:
+      type: object
+      properties:
+        id:             { type: string }
+        name:           { type: string }
+        symbol:         { type: string }
+        price:          { type: number }
+        priceChange24h: { type: number }
+        marketCap:      { type: string }
+        volume24h:      { type: string }
+        badge:          { type: string, enum: [High Potential, Hot, New Listing, Trending, Gem] }
+        riskLevel:      { type: string, enum: [High Risk, Medium Risk, Low Risk] }
+        binanceListed:  { type: boolean }
+        dexScreenerUrl: { type: string }
+        priceSource:    { type: string, enum: [binance, dexscreener, static] }
+        binanceUrl:     { type: string }
+        emoji:          { type: string }
+      required: [id, name, symbol, price, priceChange24h, marketCap, volume24h, badge, riskLevel, binanceListed, priceSource, binanceUrl, emoji]
+      
+      
+      POST /api/memecoins/update
+Authorization: 0xR1
