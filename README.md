@@ -28,5 +28,18 @@ To deliver a production-ready experience, **MemeClaw Hunter** is built on a mult
 - **Fail-safe Mechanism:** Frontend ensures data persistence even during API sync intervals.
 - ![MemeClaw Dashboard](dashboard.jpg)
 
----
+
+
 *MemeClaw Hunter: Bridging AI Intelligence with Binance Execution for the next generation of Alpha seekers.*
+
+## 🛠️ Technical Deep Dive (Source Code)
+The project logic is divided into specialized modules for maximum efficiency:
+
+* **[Alpha Scout](binance_alpha_scout.py)**: The core Python engine for real-time meme coin detection.
+* **[Binance Hub Connector](binance_hub_scout.py)**: Direct integration with Binance Skills Hub for market ranking.
+* **[Cloud Bridge](replit_bridge.py)**: Facilitates the connection between OpenClaw logic and the Replit dashboard.
+
+### 📜 Knowledge Base
+Check out our internal documentation:
+- [System Skills & Tools](TOOLS.md)
+- [Agent Intelligence Logic](SOUL.md)
