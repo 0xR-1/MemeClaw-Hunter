@@ -38,7 +38,7 @@ The project logic is divided into specialized modules for maximum efficiency:
 
 ### 📜 Knowledge Base
 Check out our internal documentation:
-- [📱 Interactive Mini-App Dashboard](Replit-Mini App Code.txt)
+- [📱 Interactive Mini-App Dashboard](./Replit-Mini%20App%20Code.html)
 - [System Skills & Tools](TOOLS.md)
 - [Agent Intelligence Logic](SOUL.md)
 
