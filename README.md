@@ -29,9 +29,6 @@ To deliver a production-ready experience, **MemeClaw Hunter** is built on a mult
 - ![MemeClaw Dashboard](dashboard.jpg)
 
 
-
-*MemeClaw Hunter: Bridging AI Intelligence with Binance Execution for the next generation of Alpha seekers.*
-
 ## 🛠️ Technical Deep Dive (Source Code)
 The project logic is divided into specialized modules for maximum efficiency:
 
@@ -43,3 +40,5 @@ The project logic is divided into specialized modules for maximum efficiency:
 Check out our internal documentation:
 - [System Skills & Tools](TOOLS.md)
 - [Agent Intelligence Logic](SOUL.md)
+
+- *MemeClaw Hunter: Bridging AI Intelligence with Binance Execution for the next generation of Alpha seekers.*
